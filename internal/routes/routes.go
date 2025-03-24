@@ -16,5 +16,6 @@ func RegisterAllRoutes() *mux.Router {
 	for _, register := range routeModules {
 		register(router)
 	}
+
 	return router
 }
