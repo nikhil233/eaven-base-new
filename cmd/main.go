@@ -5,12 +5,12 @@ import (
 	"log"
 	"net/http"
 
-	databasego "github.com/nikhil/eaven/internal/database.go"
+	"github.com/nikhil/eaven/internal/database.go"
 	"github.com/nikhil/eaven/internal/routes"
 )
 
 func main() {
-	databasego.InitDB()
+	database.InitDB()
 	router := routes.RegisterAllRoutes()
 
 	fmt.Println("Server is running on port 8080...")
