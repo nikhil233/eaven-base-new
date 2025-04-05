@@ -3,6 +3,7 @@ package routes
 import (
 	"github.com/gorilla/mux"
 	authRoute "github.com/nikhil/eaven/internal/routes/Auth"
+	teamroutes "github.com/nikhil/eaven/internal/routes/TeamRoutes"
 	userRoutes "github.com/nikhil/eaven/internal/routes/user"
 )
 
@@ -10,6 +11,7 @@ import (
 var routeModules = []func(*mux.Router){
 	authRoute.RegisterAuthRoutes,
 	userRoutes.UserProfileRoutes,
+	teamroutes.TeamRoutes,
 }
 
 // Register all routes dynamically
