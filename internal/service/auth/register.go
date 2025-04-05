@@ -65,7 +65,7 @@ func (s *AuthService) Login(email, password string) (string, models.User, error)
 		return "", models.User{}, err
 	}
 
-	token, err := s.GenerateJWT(user.Email)
+	token, err := s.GenerateJWT(user.Email, user.UserID)
 	user.Password = ""
 	if err != nil {
 		return "", models.User{}, err
@@ -75,11 +75,12 @@ func (s *AuthService) Login(email, password string) (string, models.User, error)
 }
 
 // GenerateJWT creates a JWT token for authentication
-func (s *AuthService) GenerateJWT(email string) (string, error) {
+func (s *AuthService) GenerateJWT(email string, userID int64) (string, error) {
 	secretKey := os.Getenv("JWT_SECRET")
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"email": email,
-		"exp":   time.Now().Add(time.Hour * 24).Unix(),
+		"email":   email,
+		"user_id": userID,
+		"exp":     time.Now().Add(time.Hour * 24).Unix(),
 	})
 
 	return token.SignedString([]byte(secretKey))

@@ -34,7 +34,7 @@ func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
 
 	user.UserID = userid
 	user.Password = ""
-	token, err := h.Service.GenerateJWT(user.Email)
+	token, err := h.Service.GenerateJWT(user.Email, user.UserID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
