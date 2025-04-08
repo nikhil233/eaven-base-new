@@ -4,7 +4,7 @@ package models
 type Channel struct {
 	ChannelID   int64  `json:"channl_id"`
 	TeamID      int64  `json:"team_id"`
-	Name        string `json:"name"`
+	Name        string `json:"channel_name"`
 	Description string `json:"description"`
 	IsPrivate   bool   `json:"is_private"`
 	CreatedBy   int64  `json:"created_by"`
@@ -20,4 +20,11 @@ type ChannelMember struct {
 	Role      string `json:"role"` // admin, member
 	JoinedAt  int64  `json:"joined_at"`
 	InvitedBy int64  `json:"invited_by,omitempty"`
+}
+
+type PaginationResponse struct {
+	Channels   []Channel `json:"channels"`
+	TotalCount int       `json:"total_count"`
+	Page       int       `json:"page"`
+	PerPage    int       `json:"per_page"`
 }

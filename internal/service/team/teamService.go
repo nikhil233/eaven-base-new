@@ -488,6 +488,117 @@ func (ts *TeamService) UpdateTeam(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusOK, updatedTeam)
 }
 
+func (ts *TeamService) GetTeamChannels(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	userDetails, ok := ctx.Value(middleware.UserContextKey).(jwt.MapClaims)
+	if !ok {
+		ts.Log.Error("Failed to extract user details from context")
+		respondWithError(w, http.StatusUnauthorized, "Invalid token")
+		return
+	}
+	userID, err := strconv.ParseInt(fmt.Sprintf("%v", userDetails["user_id"]), 10, 64)
+	if err != nil {
+		ts.Log.Error("Invalid user ID in token", "error", err)
+		respondWithError(w, http.StatusBadRequest, "Invalid user ID")
+		return
+	}
+	vars := mux.Vars(r)
+	teamID, err := strconv.ParseInt(vars["team_id"], 10, 64)
+	if err != nil {
+		ts.Log.Error("Invalid team ID in URL", "error", err)
+		respondWithError(w, http.StatusBadRequest, "Invalid team ID")
+		return
+	}
+
+	// Verify user is a member of the team
+	var isMember bool
+	memberQuery := `SELECT 1 FROM user_teams_mapper WHERE team_id = ? AND user_id = ?`
+	err = ts.DB.QueryRowContext(ctx, memberQuery, teamID, userID).Scan(&isMember)
+	if err != nil {
+		ts.Log.Error("Failed to check team membership", "error", err)
+		respondWithError(w, http.StatusInternalServerError, "Failed to verify team membership")
+		return
+	}
+
+	if !isMember {
+		ts.Log.Warn("Unauthorized channel access attempt", "team_id", teamID, "user_id", userID)
+		respondWithError(w, http.StatusForbidden, "You don't have access to this team")
+		return
+	}
+
+	// Get pagination parameters
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page < 1 {
+		page = 1
+	}
+	perPage, _ := strconv.Atoi(r.URL.Query().Get("per_page"))
+	if perPage < 1 || perPage > 100 {
+		perPage = 20 // Default to 20 items per page
+	}
+	offset := (page - 1) * perPage
+
+	// Count total channels for pagination
+	var totalCount int
+	countQuery := `
+		SELECT COUNT(*) 
+		FROM channels c
+		INNER JOIN channel_members CM on CM.channel_id = c.channel_id
+		WHERE c.team_id = ? and CM.user_id = ?
+	`
+	err = ts.DB.QueryRowContext(ctx, countQuery, teamID, userID).Scan(&totalCount)
+	if err != nil {
+		ts.Log.Error("Failed to count channels", "error", err)
+		respondWithError(w, http.StatusInternalServerError, "Failed to get channels")
+		return
+	}
+
+	// Query to get channels with pagination
+	query := `
+		SELECT c.channel_id, c.team_id, c.channel_name, c.description, c.is_private, c.created_by, c.created_at, c.updated_at
+		FROM channels c
+		INNER JOIN channel_members CM on CM.channel_id = c.channel_id
+		WHERE c.team_id = ? and CM.user_id = ?
+		LIMIT ? OFFSET ?
+	`
+	rows, err := ts.DB.QueryContext(ctx, query, teamID, userID, perPage, offset)
+	if err != nil {
+		ts.Log.Error("Failed to query channels", "error", err)
+		respondWithError(w, http.StatusInternalServerError, "Failed to get channels")
+		return
+	}
+	defer rows.Close()
+
+	var channels []models.Channel
+	for rows.Next() {
+		var c models.Channel
+		if err := rows.Scan(&c.ChannelID, &c.TeamID, &c.Name, &c.Description, &c.IsPrivate, &c.CreatedBy, &c.CreatedAt, &c.UpdatedAt); err != nil {
+			ts.Log.Error("Failed to scan channel row", "error", err)
+			respondWithError(w, http.StatusInternalServerError, "Failed to process channels data")
+			return
+		}
+		channels = append(channels, c)
+	}
+
+	if err := rows.Err(); err != nil {
+		ts.Log.Error("Error iterating channels rows", "error", err)
+		respondWithError(w, http.StatusInternalServerError, "Error processing channels data")
+		return
+	}
+
+	// Build response
+	response := models.PaginationResponse{
+		Channels:   channels,
+		TotalCount: totalCount,
+		Page:       page,
+		PerPage:    perPage,
+	}
+
+	ts.Log.Info("Channels fetched from database", "team_id", teamID, "user_id", userID, "count", len(channels))
+	respondWithJSON(w, http.StatusOK, response)
+
+}
+
 // Helper functions for HTTP responses
 func respondWithError(w http.ResponseWriter, code int, message string) {
 	respondWithJSON(w, code, map[string]string{"error": message})
