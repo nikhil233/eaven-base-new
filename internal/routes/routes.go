@@ -18,6 +18,7 @@ var routeModules = []func(*mux.Router){
 func RegisterAllRoutes() *mux.Router {
 	router := mux.NewRouter()
 
+	// Apply route modules
 	for _, register := range routeModules {
 		register(router)
 	}

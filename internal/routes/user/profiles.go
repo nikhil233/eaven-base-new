@@ -9,11 +9,13 @@ import (
 )
 
 func UserProfileRoutes(router *mux.Router) {
-
 	profileService := profileService.NewProfileService()
 
-	publicRouter := router.PathPrefix("/user").Subrouter()
-	publicRouter.Use(middleware.AuthMiddleware, middleware.ResponseWrapperMiddleware)
-	publicRouter.HandleFunc("/profile", profileService.GetUserProfile).Methods(http.MethodGet)
-	publicRouter.HandleFunc("/profile", profileService.UpdateUserProfile).Methods(http.MethodPut)
+	// Protected routes requiring authentication
+	protectedRouter := router.PathPrefix("/user").Subrouter()
+	protectedRouter.Use(middleware.AuthMiddleware, middleware.ResponseWrapperMiddleware)
+
+	// User profile routes
+	protectedRouter.HandleFunc("/profile", profileService.GetUserProfile).Methods(http.MethodGet)
+	protectedRouter.HandleFunc("/profile", profileService.UpdateUserProfile).Methods(http.MethodPut)
 }
