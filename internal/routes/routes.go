@@ -4,6 +4,7 @@ import (
 	"github.com/gorilla/mux"
 	authRoute "github.com/nikhil/eaven/internal/routes/Auth"
 	teamroutes "github.com/nikhil/eaven/internal/routes/TeamRoutes"
+	channnelRoutes "github.com/nikhil/eaven/internal/routes/channels"
 	userRoutes "github.com/nikhil/eaven/internal/routes/user"
 )
 
@@ -12,6 +13,7 @@ var routeModules = []func(*mux.Router){
 	authRoute.RegisterAuthRoutes,
 	userRoutes.UserProfileRoutes,
 	teamroutes.TeamRoutes,
+	channnelRoutes.ChannelRoutes,
 }
 
 // Register all routes dynamically

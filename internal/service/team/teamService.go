@@ -18,7 +18,7 @@ import (
 	"github.com/nikhil/eaven/internal/database.go"
 	"github.com/nikhil/eaven/internal/logger"
 	"github.com/nikhil/eaven/internal/middleware"
-	teammodels "github.com/nikhil/eaven/internal/models/teams"
+	"github.com/nikhil/eaven/internal/models"
 	// "github.com/nikhil/eaven/internal/validator"
 )
 
@@ -43,10 +43,10 @@ type UpdateTeamRequest struct {
 
 // PaginationResponse wraps paginated team results
 type PaginationResponse struct {
-	Teams      []teammodels.Team `json:"teams"`
-	TotalCount int               `json:"total_count"`
-	Page       int               `json:"page"`
-	PerPage    int               `json:"per_page"`
+	Teams      []models.Team `json:"teams"`
+	TotalCount int           `json:"total_count"`
+	Page       int           `json:"page"`
+	PerPage    int           `json:"per_page"`
 }
 
 // NewTeamService initializes a new team service
@@ -143,7 +143,7 @@ func (ts *TeamService) CreateTeam(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Return the created team
-	newTeam := teammodels.Team{
+	newTeam := models.Team{
 		ID:        teamID,
 		Name:      req.Name,
 		CreatedBy: userID,
@@ -239,9 +239,9 @@ func (ts *TeamService) GetUserTeams(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var teams []teammodels.Team
+	var teams []models.Team
 	for rows.Next() {
-		var t teammodels.Team
+		var t models.Team
 		if err := rows.Scan(&t.ID, &t.Name, &t.CreatedBy, &t.CreatedAt); err != nil {
 			ts.Log.Error("Failed to scan team row", "error", err)
 			respondWithError(w, http.StatusInternalServerError, "Failed to process teams data")
@@ -273,7 +273,8 @@ func (ts *TeamService) GetUserTeams(w http.ResponseWriter, r *http.Request) {
 	// }
 
 	ts.Log.Info("Teams fetched from database", "user_id", userID, "count", len(teams))
-	respondWithJSON(w, http.StatusOK, response)
+	// respondWithJSON(w, http.StatusOK, response)
+	json.NewEncoder(w).Encode(response)
 }
 
 // GetTeam retrieves a specific team by ID
@@ -323,7 +324,7 @@ func (ts *TeamService) GetTeam(w http.ResponseWriter, r *http.Request) {
 
 	// Try to get from cache
 	// cacheKey := fmt.Sprintf("team:%d", teamID)
-	var team teammodels.Team
+	var team models.Team
 
 	// if cached, err := ts.Cache.Get(ctx, cacheKey); err == nil {
 	// 	if err := json.Unmarshal([]byte(cached), &team); err == nil {
@@ -453,7 +454,7 @@ func (ts *TeamService) UpdateTeam(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get the updated team
-	var updatedTeam teammodels.Team
+	var updatedTeam models.Team
 	query := `
 		SELECT id, name, description, created_by, created_at, updated_at
 		FROM teams WHERE id = ?

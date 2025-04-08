@@ -8,7 +8,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/nikhil/eaven/internal/database.go"
 	"github.com/nikhil/eaven/internal/middleware"
-	models "github.com/nikhil/eaven/internal/models/users"
+	models "github.com/nikhil/eaven/internal/models"
 )
 
 type ProfileService struct {

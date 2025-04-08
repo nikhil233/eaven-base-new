@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	models "github.com/nikhil/eaven/internal/models/users"
+	models "github.com/nikhil/eaven/internal/models"
 	services "github.com/nikhil/eaven/internal/service/auth"
 )
 

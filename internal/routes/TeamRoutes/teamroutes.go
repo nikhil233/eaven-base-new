@@ -20,4 +20,5 @@ func TeamRoutes(router *mux.Router) {
 	protectedRouter.HandleFunc("/all", teamService.GetUserTeams).Methods(http.MethodGet)
 	protectedRouter.HandleFunc("/get/{id}", teamService.GetTeam).Methods(http.MethodGet)
 	protectedRouter.HandleFunc("/update/{id}", teamService.UpdateTeam).Methods(http.MethodPut)
+	protectedRouter.HandleFunc("/{team_id}/channels", teamService.GetUserTeams).Methods(http.MethodGet)
 }
