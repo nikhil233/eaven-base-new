@@ -1,6 +1,7 @@
 package messageService
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"github.com/nikhil/eaven/internal/database.go"
 	"github.com/nikhil/eaven/internal/logger"
 	"github.com/nikhil/eaven/internal/middleware"
+	"github.com/nikhil/eaven/internal/models"
 )
 
 type MessageService struct {
@@ -32,13 +34,7 @@ type sendMessageRequest struct {
 	Content   string `json:"content"`
 }
 
-type channelUserDataStruct struct {
-	ChannelID int64 `json:"channel_id"`
-	TeamID    int64 `json:"team_id"`
-	UserID    int64 `json:"user_id"`
-}
-
-func (ms *MessageService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (ms *MessageService) SendMessage(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	userDetails, ok := ctx.Value(middleware.UserContextKey).(jwt.MapClaims)
 	if !ok {
@@ -62,11 +58,12 @@ func (ms *MessageService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var channelUserData channelUserDataStruct
-	memberQuery := `SELECT C.channel_id , CM.user_id , T.team_id
+	var channelUserData models.ChannelUserDataStruct
+	memberQuery := `SELECT C.channel_id , CM.user_id , T.team_id , U.first_name , U.last_name  , C.channel_name
 					FROM channel_members CM
 					INNER JOIN channels C on C.channel_id = CM.channel_id
 					INNER JOIN teams T on C.team_id = T.team_id
+					INNER JOIN users U on U.user_id = CM.user_id
 					INNER JOIN user_teams_mapper UTM on UTM.user_id = CM.user_id and UTM.team_id = C.team_id
 					WHERE CM.channel_id = ?  and CM.user_id = ?`
 	err = ms.DB.QueryRowContext(ctx, memberQuery, messageBody.ChannelID, userID).Scan(&channelUserData)
@@ -85,7 +82,7 @@ func (ms *MessageService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	currentTime := time.Now().UTC().Unix()
 
 	// Insert the message into the database
-	query := `INSERT INTO messages (channel_id, user_id, content , message_created_at) VALUES (?, ?, ? , ?)`
+	query := `INSERT INTO messages (channel_id, user_id, content, message_created_at) VALUES (?, ?, ? , ?)`
 	_, err = ms.DB.ExecContext(ctx, query, messageBody.ChannelID, userID, messageBody.Content, currentTime)
 	if err != nil {
 		ms.Log.Error("Failed to insert message", "error", err)
@@ -93,8 +90,34 @@ func (ms *MessageService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	msg := models.MessageBody{
+		ChannelID:   messageBody.ChannelID,
+		UserID:      userID,
+		Content:     messageBody.Content,
+		MessageTime: currentTime,
+	}
+
+	_, err = ms.SaveMessage(ctx, msg)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Failed to insert message")
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, map[string]string{"message": "Message sent successfully"})
+}
+
+func (ms *MessageService) SaveMessage(ctx context.Context, messageBody models.MessageBody) (bool, error) {
+	// Insert the message into the database
+	query := `INSERT INTO messages (channel_id, user_id, content, message_created_at) VALUES (?, ?, ? , ?)`
+	_, err := ms.DB.ExecContext(ctx, query, messageBody.ChannelID, messageBody.UserID, messageBody.Content, messageBody.MessageTime)
+	if err != nil {
+		ms.Log.Error("Failed to insert message", "error", err)
+		return false, fmt.Errorf("failed to insert message: %v", err)
+	}
+
 	// trigger messages to channel users
 
+	return true, nil
 }
 
 func respondWithError(w http.ResponseWriter, code int, message string) {

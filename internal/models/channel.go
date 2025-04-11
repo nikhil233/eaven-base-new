@@ -28,3 +28,12 @@ type PaginationResponse struct {
 	Page       int       `json:"page"`
 	PerPage    int       `json:"per_page"`
 }
+
+type ChannelUserDataStruct struct {
+	ChannelID   int64  `json:"channel_id"`
+	TeamID      int64  `json:"team_id"`
+	UserID      int64  `json:"user_id"`
+	FirstName   string `json:"first_name"`
+	LastName    string `json:"last_name"`
+	ChannelName string `json:"channel_name"`
+}

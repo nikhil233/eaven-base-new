@@ -17,6 +17,7 @@ import (
 	"github.com/nikhil/eaven/internal/logger"
 	"github.com/nikhil/eaven/internal/middleware"
 	"github.com/nikhil/eaven/internal/models"
+	messageService "github.com/nikhil/eaven/internal/service/messages"
 )
 
 // ChannelService handles channel-related operations
@@ -460,6 +461,80 @@ func (cs *ChannelService) UpdateChannel(w http.ResponseWriter, r *http.Request) 
 	cs.Log.Info("Channel updated", "channel_id", channelID, "updated_by", userID)
 
 	respondWithJSON(w, http.StatusOK, updatedChannel)
+}
+
+func (cs *ChannelService) SubscribeChannel(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Extract user details from context
+	userDetails, ok := ctx.Value(middleware.UserContextKey).(jwt.MapClaims)
+	if !ok {
+		cs.Log.Error("Failed to extract user details from context")
+		respondWithError(w, http.StatusUnauthorized, "Invalid token")
+		return
+	}
+
+	// Extract user ID from token
+	userID, err := strconv.ParseInt(fmt.Sprintf("%v", userDetails["user_id"]), 10, 64)
+	if err != nil {
+		cs.Log.Error("Invalid user ID in token", "error", err)
+		respondWithError(w, http.StatusBadRequest, "Invalid user ID")
+		return
+	}
+
+	// Get channel ID from URL parameters
+	vars := mux.Vars(r)
+	channelID, err := strconv.ParseInt(vars["channel_id"], 10, 64)
+	if err != nil {
+		cs.Log.Error("Invalid channel ID in URL", "error", err)
+		respondWithError(w, http.StatusBadRequest, "Invalid channel ID")
+		return
+	}
+
+	//check if user already exists in the team , if yes then add or else throw error that user is not present in team
+	var channelUserData models.ChannelUserDataStruct
+	memberQuery := `SELECT C.channel_id , UTM.user_id , T.team_id , U.first_name , U.last_name  , C.channel_name
+					FROM channels CM
+					INNER JOIN teams T on C.team_id = T.team_id
+					INNER JOIN user_teams_mapper UTM on  UTM.team_id = C.team_id
+					INNER JOIN users U on U.user_id = UTM.user_id
+					WHERE CM.channel_id = ? and UTM.user_id = ?`
+	err = cs.DB.QueryRowContext(ctx, memberQuery, channelID, userID).Scan(&channelUserData.ChannelID, &channelUserData.UserID, &channelUserData.TeamID, &channelUserData.FirstName, &channelUserData.LastName)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			cs.Log.Warn("Unauthorized channel update attempt", "channel_id", channelID, "user_id", userID)
+			respondWithError(w, http.StatusForbidden, "You don't have permission to update this channel")
+			return
+		}
+		cs.Log.Error("Failed to check channel membership", "error", err)
+		respondWithError(w, http.StatusInternalServerError, "Failed to check membership")
+		return
+	}
+	currentTime := time.Now().UTC().Unix()
+
+	// Subscribe user to channel
+	subscribeQuery := `INSERT INTO channel_user_mapper (channel_id, user_id ,role, joined_at) VALUES (?,?,?,?)`
+	_, err = cs.DB.ExecContext(ctx, subscribeQuery, channelID, userID, 2, currentTime)
+	if err != nil {
+		cs.Log.Error("Failed to subscribe user to channel", "error", err)
+		respondWithError(w, http.StatusInternalServerError, "Failed to subscribe user")
+		return
+	}
+
+	ms := messageService.NewMessageService()
+	msg := models.MessageBody{
+		ChannelID:   channelID,
+		UserID:      userID,
+		Content:     "",
+		MessageTime: currentTime,
+	}
+
+	_, err = ms.SaveMessage(ctx, msg)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Failed to insert message")
+		return
+	}
+
 }
 
 // Helper functions for HTTP responses
