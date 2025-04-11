@@ -6,11 +6,16 @@ import (
 	"net/http"
 
 	"github.com/nikhil/eaven/internal/database.go"
+	"github.com/nikhil/eaven/internal/models"
 	"github.com/nikhil/eaven/internal/routes"
 )
 
 func main() {
 	database.InitDB()
+
+	// Initialize the WebSocket Hub
+	models.GetHub()
+
 	router := routes.RegisterAllRoutes()
 
 	fmt.Println("Server is running on port 8080...")

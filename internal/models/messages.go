@@ -5,4 +5,5 @@ type MessageBody struct {
 	UserID      int64  `json:"user_id"`
 	Content     string `json:"content"`
 	MessageTime int64  `json:"message_created_at"`
+	TeamID      int64  `json:"team_id"`
 }

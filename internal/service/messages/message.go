@@ -87,6 +87,7 @@ func (ms *MessageService) SendMessage(w http.ResponseWriter, r *http.Request) {
 		UserID:      userID,
 		Content:     messageBody.Content,
 		MessageTime: currentTime,
+		TeamID:      channelUserData.TeamID,
 	}
 
 	_, err = ms.SaveMessage(ctx, msg)
@@ -108,8 +109,70 @@ func (ms *MessageService) SaveMessage(ctx context.Context, messageBody models.Me
 	}
 
 	// trigger messages to channel users
-
+	ms.TriggerMessageToChannelUsers(ctx, messageBody)
 	return true, nil
+}
+
+func (ms *MessageService) TriggerMessageToChannelUsers(ctx context.Context, messageBody models.MessageBody) {
+	query := `SELECT CM.user_id FROM channel_members CM WHERE CM.channel_id = ?`
+	rows, err := ms.DB.QueryContext(ctx, query, messageBody.ChannelID)
+	if err != nil {
+		ms.Log.Error("Failed to trigger message to channel users", "error", err)
+		return
+	}
+
+	var userIDs []int64
+	for rows.Next() {
+		var userID int64
+		err = rows.Scan(&userID)
+		if err != nil {
+			ms.Log.Error("Failed to scan user ID", "error", err)
+			continue
+		}
+		userIDs = append(userIDs, userID)
+	}
+	if err = rows.Err(); err != nil {
+		ms.Log.Error("Error iterating over rows", "error", err)
+		return
+	}
+	defer rows.Close()
+
+	// Get the global hub instance
+	hub := models.GetHub()
+
+	// Create message payload
+	messagePayload := models.Message{
+		Type:    "message",
+		Content: messageBody.Content,
+		UserID:  fmt.Sprintf("%d", messageBody.UserID),
+		TeamID:  fmt.Sprintf("%d", messageBody.TeamID),
+	}
+
+	messageBytes, err := json.Marshal(messagePayload)
+	if err != nil {
+		ms.Log.Error("Failed to marshal message", "error", err)
+		return
+	}
+
+	for _, userID := range userIDs {
+		// Skip sending to the sender
+		// if userID == messageBody.UserID {
+		// 	continue
+		// }
+
+		userIDStr := fmt.Sprintf("%d", userID)
+		teamIDStr := fmt.Sprintf("%d", messageBody.TeamID)
+
+		// Check if user has an active WebSocket connection and send message
+		if hub.IsUserConnected(teamIDStr, userIDStr) {
+			if !hub.SendMessageToUser(teamIDStr, userIDStr, messageBytes) {
+				ms.Log.Error("Failed to send message to connected user", "user_id", userID)
+			}
+		} else {
+			// TODO: Implement push notification logic here
+			ms.Log.Info("User is offline, would send push notification", "user_id", userID)
+		}
+	}
 }
 
 func respondWithError(w http.ResponseWriter, code int, message string) {
