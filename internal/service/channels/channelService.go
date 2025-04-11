@@ -491,6 +491,15 @@ func (cs *ChannelService) SubscribeChannel(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	var memeberID int64
+	sqlQuery := `Select channel_member_id from channel_members where  user_id=? and channel_id = ?`
+	err = cs.DB.QueryRowContext(ctx, sqlQuery, userID, channelID).Scan(&memeberID)
+	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			respondWithError(w, http.StatusForbidden, "User already exists in channel")
+
+		}
+	}
 	//check if user already exists in the team , if yes then add or else throw error that user is not present in team
 	var channelUserData models.ChannelUserDataStruct
 	memberQuery := `SELECT C.channel_id , UTM.user_id , T.team_id , U.first_name , U.last_name  , C.channel_name
@@ -499,11 +508,11 @@ func (cs *ChannelService) SubscribeChannel(w http.ResponseWriter, r *http.Reques
 					INNER JOIN user_teams_mapper UTM on  UTM.team_id = C.team_id
 					INNER JOIN users U on U.user_id = UTM.user_id
 					WHERE CM.channel_id = ? and UTM.user_id = ?`
-	err = cs.DB.QueryRowContext(ctx, memberQuery, channelID, userID).Scan(&channelUserData.ChannelID, &channelUserData.UserID, &channelUserData.TeamID, &channelUserData.FirstName, &channelUserData.LastName)
+	err = cs.DB.QueryRowContext(ctx, memberQuery, channelID, userID).Scan(&channelUserData.ChannelID, &channelUserData.UserID, &channelUserData.TeamID, &channelUserData.FirstName, &channelUserData.LastName, &channelUserData.ChannelName)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			cs.Log.Warn("Unauthorized channel update attempt", "channel_id", channelID, "user_id", userID)
-			respondWithError(w, http.StatusForbidden, "You don't have permission to update this channel")
+			cs.Log.Warn("Unauthorized channel join attempt", "channel_id", channelID, "user_id", userID)
+			respondWithError(w, http.StatusForbidden, "You don't have permission to join this channel")
 			return
 		}
 		cs.Log.Error("Failed to check channel membership", "error", err)
@@ -525,7 +534,7 @@ func (cs *ChannelService) SubscribeChannel(w http.ResponseWriter, r *http.Reques
 	msg := models.MessageBody{
 		ChannelID:   channelID,
 		UserID:      userID,
-		Content:     "",
+		Content:     channelUserData.FirstName + " has joined " + channelUserData.ChannelName,
 		MessageTime: currentTime,
 	}
 

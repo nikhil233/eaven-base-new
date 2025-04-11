@@ -57,7 +57,8 @@ func (ms *MessageService) SendMessage(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
-
+	// ms.Log.Info("User : ", userID, messageBody.ChannelID)
+	// fmt.Println(userID, messageBody.ChannelID)
 	var channelUserData models.ChannelUserDataStruct
 	memberQuery := `SELECT C.channel_id , CM.user_id , T.team_id , U.first_name , U.last_name  , C.channel_name
 					FROM channel_members CM
@@ -66,7 +67,7 @@ func (ms *MessageService) SendMessage(w http.ResponseWriter, r *http.Request) {
 					INNER JOIN users U on U.user_id = CM.user_id
 					INNER JOIN user_teams_mapper UTM on UTM.user_id = CM.user_id and UTM.team_id = C.team_id
 					WHERE CM.channel_id = ?  and CM.user_id = ?`
-	err = ms.DB.QueryRowContext(ctx, memberQuery, messageBody.ChannelID, userID).Scan(&channelUserData)
+	err = ms.DB.QueryRowContext(ctx, memberQuery, messageBody.ChannelID, userID).Scan(&channelUserData.ChannelID, &channelUserData.UserID, &channelUserData.TeamID, &channelUserData.FirstName, &channelUserData.LastName, &channelUserData.ChannelName)
 	if err != nil {
 		ms.Log.Error("Failed to check channel subscription", "error", err)
 		respondWithError(w, http.StatusInternalServerError, "Failed to verify channel subscription")
@@ -80,15 +81,6 @@ func (ms *MessageService) SendMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	currentTime := time.Now().UTC().Unix()
-
-	// Insert the message into the database
-	query := `INSERT INTO messages (channel_id, user_id, content, message_created_at) VALUES (?, ?, ? , ?)`
-	_, err = ms.DB.ExecContext(ctx, query, messageBody.ChannelID, userID, messageBody.Content, currentTime)
-	if err != nil {
-		ms.Log.Error("Failed to insert message", "error", err)
-		respondWithError(w, http.StatusInternalServerError, "Failed to insert message")
-		return
-	}
 
 	msg := models.MessageBody{
 		ChannelID:   messageBody.ChannelID,
