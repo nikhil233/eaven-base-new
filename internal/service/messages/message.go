@@ -142,10 +142,8 @@ func (ms *MessageService) TriggerMessageToChannelUsers(ctx context.Context, mess
 
 	// Create message payload
 	messagePayload := models.Message{
-		Type:    "message",
-		Content: messageBody.Content,
-		UserID:  fmt.Sprintf("%d", messageBody.UserID),
-		TeamID:  fmt.Sprintf("%d", messageBody.TeamID),
+		Type:       "message",
+		MessageObj: messageBody,
 	}
 
 	messageBytes, err := json.Marshal(messagePayload)

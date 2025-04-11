@@ -2,6 +2,7 @@ package models
 
 import (
 	"encoding/json"
+	"strconv"
 	"sync"
 	"time"
 
@@ -51,10 +52,8 @@ type Client struct {
 
 // Message represents the structure of WebSocket messages
 type Message struct {
-	Type    string `json:"type"`
-	Content string `json:"content"`
-	TeamID  string `json:"team_id"`
-	UserID  string `json:"user_id"`
+	Type       string      `json:"type"`
+	MessageObj MessageBody `json:"message_obj"`
 }
 
 // NewHub creates a new Hub instance
@@ -210,10 +209,17 @@ func (c *Client) ReadPump() {
 		if err := json.Unmarshal(message, &msg); err != nil {
 			continue
 		}
-
 		// Set the user and team IDs from the client
-		msg.UserID = c.UserID
-		msg.TeamID = c.TeamID
+		userID, err := strconv.ParseInt(c.UserID, 10, 64)
+		if err != nil {
+			continue
+		}
+		teamID, err := strconv.ParseInt(c.TeamID, 10, 64)
+		if err != nil {
+			continue
+		}
+		msg.MessageObj.UserID = userID
+		msg.MessageObj.TeamID = teamID
 
 		// Re-marshal the message
 		messageBytes, err := json.Marshal(msg)
