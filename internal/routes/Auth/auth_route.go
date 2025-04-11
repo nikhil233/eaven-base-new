@@ -14,6 +14,6 @@ func RegisterAuthRoutes(router *mux.Router) {
 	// Public routes without auth middleware
 	publicRouter := router.PathPrefix("/auth").Subrouter()
 	publicRouter.Use(middleware.ResponseWrapperMiddleware)
-	publicRouter.HandleFunc("/signup", authHandler.Signup).Methods("POST")
-	publicRouter.HandleFunc("/login", authHandler.Login).Methods("POST")
+	publicRouter.HandleFunc("/signup", authHandler.Signup).Methods("POST", "OPTIONS")
+	publicRouter.HandleFunc("/login", authHandler.Login).Methods("POST", "OPTIONS")
 }

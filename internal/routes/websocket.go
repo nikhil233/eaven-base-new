@@ -13,5 +13,5 @@ func RegisterWebSocketRoutes(router *mux.Router) {
 	wsHandler := handlers.NewWebSocketHandler()
 
 	// WebSocket endpoint with authentication
-	router.Handle("/ws", middleware.AuthMiddleware(http.HandlerFunc(wsHandler.HandleWebSocket))).Methods("GET")
+	router.Handle("/ws", middleware.AuthMiddleware(http.HandlerFunc(wsHandler.HandleWebSocket))).Methods("GET", "OPTIONS")
 }

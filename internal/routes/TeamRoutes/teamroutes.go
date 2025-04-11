@@ -16,9 +16,9 @@ func TeamRoutes(router *mux.Router) {
 	protectedRouter.Use(middleware.AuthMiddleware, middleware.ResponseWrapperMiddleware)
 
 	// Team routes
-	protectedRouter.HandleFunc("/create", teamService.CreateTeam).Methods(http.MethodPost)
-	protectedRouter.HandleFunc("/all", teamService.GetUserTeams).Methods(http.MethodGet)
-	protectedRouter.HandleFunc("/get/{id}", teamService.GetTeam).Methods(http.MethodGet)
-	protectedRouter.HandleFunc("/update/{id}", teamService.UpdateTeam).Methods(http.MethodPut)
-	protectedRouter.HandleFunc("/{team_id}/channels", teamService.GetTeamChannels).Methods(http.MethodGet)
+	protectedRouter.HandleFunc("/create", teamService.CreateTeam).Methods(http.MethodPost, http.MethodOptions)
+	protectedRouter.HandleFunc("/all", teamService.GetUserTeams).Methods(http.MethodGet, http.MethodOptions)
+	protectedRouter.HandleFunc("/get/{id}", teamService.GetTeam).Methods(http.MethodGet, http.MethodOptions)
+	protectedRouter.HandleFunc("/update/{id}", teamService.UpdateTeam).Methods(http.MethodPut, http.MethodOptions)
+	protectedRouter.HandleFunc("/{team_id}/channels", teamService.GetTeamChannels).Methods(http.MethodGet, http.MethodOptions)
 }

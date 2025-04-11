@@ -15,7 +15,7 @@ var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
-		return true // In production, replace with proper origin checking
+		return true // Allow all origins
 	},
 }
 
@@ -33,6 +33,12 @@ func NewWebSocketHandler() *WebSocketHandler {
 
 // HandleWebSocket handles incoming WebSocket connections
 func (h *WebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
+	// Handle preflight requests
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
 	// Get user information from context (set by auth middleware)
 	claims, ok := r.Context().Value(middleware.UserContextKey).(jwt.MapClaims)
 	if !ok {
@@ -69,5 +75,4 @@ func (h *WebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Reques
 	// Start goroutines for reading and writing messages
 	go client.WritePump()
 	go client.ReadPump()
-
 }

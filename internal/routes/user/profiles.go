@@ -16,6 +16,6 @@ func UserProfileRoutes(router *mux.Router) {
 	protectedRouter.Use(middleware.AuthMiddleware, middleware.ResponseWrapperMiddleware)
 
 	// User profile routes
-	protectedRouter.HandleFunc("/profile", profileService.GetUserProfile).Methods(http.MethodGet)
-	protectedRouter.HandleFunc("/profile", profileService.UpdateUserProfile).Methods(http.MethodPut)
+	protectedRouter.HandleFunc("/profile", profileService.GetUserProfile).Methods(http.MethodGet, http.MethodOptions)
+	protectedRouter.HandleFunc("/profile", profileService.UpdateUserProfile).Methods(http.MethodPut, http.MethodOptions)
 }
