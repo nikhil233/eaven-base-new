@@ -492,20 +492,30 @@ func (cs *ChannelService) SubscribeChannel(w http.ResponseWriter, r *http.Reques
 	}
 
 	var memeberID int64
+	fmt.Println("userID", userID)
+	fmt.Println("channelID", channelID)
 	sqlQuery := `Select channel_member_id from channel_members where  user_id=? and channel_id = ?`
 	err = cs.DB.QueryRowContext(ctx, sqlQuery, userID, channelID).Scan(&memeberID)
 	if err != nil {
-		if !errors.Is(err, sql.ErrNoRows) {
-			respondWithError(w, http.StatusForbidden, "User already exists in channel")
-
+		if errors.Is(err, sql.ErrNoRows) {
+			// User is not in the channel, which is fine - we'll add them
+		} else {
+			// Some other database error occurred
+			cs.Log.Error("Database error checking channel membership", "error", err)
+			respondWithError(w, http.StatusInternalServerError, "Failed to check channel membership")
+			return
 		}
+	} else {
+		// User already exists in the channel
+		respondWithError(w, http.StatusConflict, "User is already a member of this channel")
+		return
 	}
 	//check if user already exists in the team , if yes then add or else throw error that user is not present in team
 	var channelUserData models.ChannelUserDataStruct
-	memberQuery := `SELECT C.channel_id , UTM.user_id , T.team_id , U.first_name , U.last_name  , C.channel_name
+	memberQuery := `SELECT CM.channel_id , UTM.user_id , T.team_id , U.first_name , U.last_name  , CM.channel_name
 					FROM channels CM
-					INNER JOIN teams T on C.team_id = T.team_id
-					INNER JOIN user_teams_mapper UTM on  UTM.team_id = C.team_id
+					INNER JOIN teams T on CM.team_id = T.team_id
+					INNER JOIN user_teams_mapper UTM on  UTM.team_id = CM.team_id
 					INNER JOIN users U on U.user_id = UTM.user_id
 					WHERE CM.channel_id = ? and UTM.user_id = ?`
 	err = cs.DB.QueryRowContext(ctx, memberQuery, channelID, userID).Scan(&channelUserData.ChannelID, &channelUserData.UserID, &channelUserData.TeamID, &channelUserData.FirstName, &channelUserData.LastName, &channelUserData.ChannelName)
@@ -522,7 +532,7 @@ func (cs *ChannelService) SubscribeChannel(w http.ResponseWriter, r *http.Reques
 	currentTime := time.Now().UTC().Unix()
 
 	// Subscribe user to channel
-	subscribeQuery := `INSERT INTO channel_user_mapper (channel_id, user_id ,role, joined_at) VALUES (?,?,?,?)`
+	subscribeQuery := `INSERT INTO channel_members (channel_id, user_id ,role, joined_at) VALUES (?,?,?,?)`
 	_, err = cs.DB.ExecContext(ctx, subscribeQuery, channelID, userID, 2, currentTime)
 	if err != nil {
 		cs.Log.Error("Failed to subscribe user to channel", "error", err)
@@ -544,6 +554,27 @@ func (cs *ChannelService) SubscribeChannel(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Return success response with channel details
+	response := struct {
+		Status  string `json:"status"`
+		Message string `json:"message"`
+		Channel struct {
+			ID   int64  `json:"id"`
+			Name string `json:"name"`
+		} `json:"channel"`
+	}{
+		Status:  "success",
+		Message: "User successfully subscribed to channel",
+		Channel: struct {
+			ID   int64  `json:"id"`
+			Name string `json:"name"`
+		}{
+			ID:   channelID,
+			Name: channelUserData.ChannelName,
+		},
+	}
+
+	respondWithJSON(w, http.StatusOK, response)
 }
 
 // Helper functions for HTTP responses

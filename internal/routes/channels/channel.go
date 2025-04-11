@@ -24,6 +24,6 @@ func ChannelRoutes(router *mux.Router) {
 	// protectedRouter.HandleFunc("/update/{id}", channelService.UpdateTeam).Methods(http.MethodPut)
 	// protectedRouter.HandleFunc("/{team_id}/channels", channelService.GetUserTeams).Methods(http.MethodGet)
 
-	protectedRouter.HandleFunc("/{id}/join", channelService.SubscribeChannel).Methods(http.MethodPost)
+	protectedRouter.HandleFunc("/{channel_id}/join", channelService.SubscribeChannel).Methods(http.MethodPost)
 	protectedRouter.HandleFunc("/message", messageService.SendMessage).Methods(http.MethodPost)
 }
