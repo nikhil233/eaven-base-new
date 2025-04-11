@@ -14,6 +14,7 @@ var routeModules = []func(*mux.Router){
 	userRoutes.UserProfileRoutes,
 	teamroutes.TeamRoutes,
 	channnelRoutes.ChannelRoutes,
+	RegisterWebSocketRoutes,
 }
 
 // Register all routes dynamically
