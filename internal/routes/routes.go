@@ -6,6 +6,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/nikhil/eaven/internal/middleware"
 	authRoute "github.com/nikhil/eaven/internal/routes/Auth"
+	messageroutes "github.com/nikhil/eaven/internal/routes/MessageRoutes"
 	teamroutes "github.com/nikhil/eaven/internal/routes/TeamRoutes"
 	channnelRoutes "github.com/nikhil/eaven/internal/routes/channels"
 	userRoutes "github.com/nikhil/eaven/internal/routes/user"
@@ -17,6 +18,7 @@ var routeModules = []func(*mux.Router){
 	userRoutes.UserProfileRoutes,
 	teamroutes.TeamRoutes,
 	channnelRoutes.ChannelRoutes,
+	messageroutes.MessageRoutes,
 	RegisterWebSocketRoutes,
 }
 

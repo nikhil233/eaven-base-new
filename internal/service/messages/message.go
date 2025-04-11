@@ -173,6 +173,107 @@ func (ms *MessageService) TriggerMessageToChannelUsers(ctx context.Context, mess
 	}
 }
 
+type MessageResponse struct {
+	MessageID   int64  `json:"message_id"`
+	Content     string `json:"content"`
+	MessageTime int64  `json:"message_time"`
+	UserID      int64  `json:"user_id"`
+	FirstName   string `json:"first_name"`
+	LastName    string `json:"last_name"`
+}
+
+func (ms *MessageService) GetChannelMessages(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userDetails, ok := ctx.Value(middleware.UserContextKey).(jwt.MapClaims)
+	if !ok {
+		ms.Log.Error("Failed to extract user details from context")
+		respondWithError(w, http.StatusUnauthorized, "Invalid token")
+		return
+	}
+
+	// Extract user ID from token
+	userID, err := strconv.ParseInt(fmt.Sprintf("%v", userDetails["user_id"]), 10, 64)
+	if err != nil {
+		ms.Log.Error("Invalid user ID in token", "error", err)
+		respondWithError(w, http.StatusBadRequest, "Invalid user ID")
+		return
+	}
+
+	// Extract channel ID from URL
+	channelID, err := strconv.ParseInt(r.URL.Query().Get("channel_id"), 10, 64)
+	if err != nil {
+		ms.Log.Error("Invalid channel ID", "error", err)
+		respondWithError(w, http.StatusBadRequest, "Invalid channel ID")
+		return
+	}
+
+	// Verify user has access to the channel
+	var channelUserData models.ChannelUserDataStruct
+	memberQuery := `SELECT C.channel_id, CM.user_id, T.team_id, U.first_name, U.last_name, C.channel_name
+					FROM channel_members CM
+					INNER JOIN channels C on C.channel_id = CM.channel_id
+					INNER JOIN teams T on C.team_id = T.team_id
+					INNER JOIN users U on U.user_id = CM.user_id
+					INNER JOIN user_teams_mapper UTM on UTM.user_id = CM.user_id and UTM.team_id = C.team_id
+					WHERE CM.channel_id = ? and CM.user_id = ?`
+	err = ms.DB.QueryRowContext(ctx, memberQuery, channelID, userID).Scan(
+		&channelUserData.ChannelID,
+		&channelUserData.UserID,
+		&channelUserData.TeamID,
+		&channelUserData.FirstName,
+		&channelUserData.LastName,
+		&channelUserData.ChannelName,
+	)
+	if err != nil {
+		ms.Log.Error("Failed to verify channel access", "error", err)
+		respondWithError(w, http.StatusUnauthorized, "User does not have access to this channel")
+		return
+	}
+
+	// Query last 50 messages with sender details
+	query := `
+		SELECT m.message_id, m.content, m.message_created_at, m.user_id, u.first_name, u.last_name
+		FROM messages m
+		INNER JOIN users u ON m.user_id = u.user_id
+		WHERE m.channel_id = ?
+		ORDER BY m.message_created_at DESC
+		LIMIT 50
+	`
+	rows, err := ms.DB.QueryContext(ctx, query, channelID)
+	if err != nil {
+		ms.Log.Error("Failed to fetch messages", "error", err)
+		respondWithError(w, http.StatusInternalServerError, "Failed to fetch messages")
+		return
+	}
+	defer rows.Close()
+
+	var messages []MessageResponse
+	for rows.Next() {
+		var msg MessageResponse
+		err := rows.Scan(
+			&msg.MessageID,
+			&msg.Content,
+			&msg.MessageTime,
+			&msg.UserID,
+			&msg.FirstName,
+			&msg.LastName,
+		)
+		if err != nil {
+			ms.Log.Error("Failed to scan message", "error", err)
+			continue
+		}
+		messages = append(messages, msg)
+	}
+
+	if err = rows.Err(); err != nil {
+		ms.Log.Error("Error iterating over messages", "error", err)
+		respondWithError(w, http.StatusInternalServerError, "Error processing messages")
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, messages)
+}
+
 func respondWithError(w http.ResponseWriter, code int, message string) {
 	respondWithJSON(w, code, map[string]string{"error": message})
 }
