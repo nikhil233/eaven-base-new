@@ -6,4 +6,6 @@ type MessageBody struct {
 	Content     string `json:"content"`
 	MessageTime int64  `json:"message_created_at"`
 	TeamID      int64  `json:"team_id"`
+	FirstName   string `json:"first_name"`
+	LastName    string `json:"last_name"`
 }

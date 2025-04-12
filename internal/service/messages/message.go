@@ -88,6 +88,8 @@ func (ms *MessageService) SendMessage(w http.ResponseWriter, r *http.Request) {
 		Content:     messageBody.Content,
 		MessageTime: currentTime,
 		TeamID:      channelUserData.TeamID,
+		FirstName:   channelUserData.FirstName,
+		LastName:    channelUserData.LastName,
 	}
 
 	_, err = ms.SaveMessage(ctx, msg)
@@ -96,7 +98,7 @@ func (ms *MessageService) SendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondWithJSON(w, http.StatusOK, map[string]string{"message": "Message sent successfully"})
+	respondWithJSON(w, http.StatusOK, map[string]interface{}{"message": "Message sent successfully", "sent_message": msg})
 }
 
 func (ms *MessageService) SaveMessage(ctx context.Context, messageBody models.MessageBody) (bool, error) {
@@ -271,7 +273,7 @@ func (ms *MessageService) GetChannelMessages(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	respondWithJSON(w, http.StatusOK, messages)
+	respondWithJSON(w, http.StatusOK, map[string]interface{}{"messages": messages})
 }
 
 func respondWithError(w http.ResponseWriter, code int, message string) {
